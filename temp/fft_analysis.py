@@ -2,9 +2,9 @@ import cv2
 import numpy as np
 
 # 1. Load image in grayscale
-img = cv2.imread('d1.jpg', cv2.IMREAD_GRAYSCALE)
+img = cv2.imread('d2.jpg', cv2.IMREAD_GRAYSCALE)
 if img is None:
-    print("Error: d1.jpg not found.")
+    print("Error: d2.jpg not found.")
     exit()
 
 h, w = img.shape

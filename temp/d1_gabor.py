@@ -2,18 +2,18 @@ import cv2
 import numpy as np
 
 # 1. Load the defect image and apply local contrast normalization
-img = cv2.imread('d1.jpg', cv2.IMREAD_GRAYSCALE)
+img = cv2.imread('d2.jpg', cv2.IMREAD_GRAYSCALE)
 if img is None:
-    print("Error: d1.jpg not found.")
+    print("Error: d2.jpg not found.")
     exit()
 
 blur = cv2.GaussianBlur(img, (101, 101), 0)
 normalized_img = cv2.divide(img, blur, scale=255)
 
 # 2. Defect image parameters extracted from the new FFT
-theta = -0.746         # Radians (-42.78 degrees)
-lambd = 7.86           # Wavelength in pixels
-ksize = 23             # Kernel size (3 * lambda)
+theta = -1.141         # Radians (-42.78 degrees)
+lambd = 6.50           # Wavelength in pixels
+ksize = 19             # Kernel size (3 * lambda)
 sigma = 0.56 * lambd   # Gaussian envelope sigma
 gamma = 0.5            # Elongated aspect ratio
 psi = 0 

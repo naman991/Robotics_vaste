@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 
 # 1. Load image in grayscale
-IMAGE_PATH = 'd1.jpg'
+IMAGE_PATH = 'd3.png'
 img = cv2.imread(IMAGE_PATH, cv2.IMREAD_GRAYSCALE)
 if img is None:
     print(f"Error: {IMAGE_PATH} not found.")
@@ -57,6 +57,22 @@ kernel_imag -= kernel_imag.mean()
 f_real = cv2.filter2D(normalized_img, cv2.CV_64F, kernel_real)
 f_imag = cv2.filter2D(normalized_img, cv2.CV_64F, kernel_imag)
 structural_energy = np.sqrt(f_real**2 + f_imag**2)
+
+# //TESTRUN
+# Place this diagnostic block right before Section 6 (Structural Analysis)// testrun
+
+# 1. Save Normalized Image (Checks if scalar multiplication clipped or caused high contrast at boundaries)
+cv2.imwrite('diag_normalized.png', normalized_img)
+
+# 2. Save Raw Real Gabor Response (Checks if the real filter output spikes at edges)
+f_real_vis = cv2.normalize(f_real, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+cv2.imwrite('diag_f_real.png', f_real_vis)
+
+# 3. Save Raw Structural Energy (Checks if the fused magnitude energy map contains the border outline)
+energy_vis = cv2.normalize(structural_energy, None, 0, 255, cv2.NORM_MINMAX, dtype=cv2.CV_8U)
+cv2.imwrite('diag_energy.png', energy_vis)
+# //TESTRUN
+
 
 # 6. CHANNEL 1: Structural Analysis
 mu_struct = np.mean(structural_energy)

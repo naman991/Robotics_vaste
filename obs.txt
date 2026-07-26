@@ -1,0 +1,4 @@
+//turning layer1 leaner//
+- started w running RFFT instead of FFT, on a small 256x256 patch instead of the entire image. 
+- removed gaussian blur, and applied a simple normalization to pixels
+    (gauss is only needed if the lighting is unstable, or jitters occur)

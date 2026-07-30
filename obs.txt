@@ -2,3 +2,19 @@
 - started w running RFFT instead of FFT, on a small 256x256 patch instead of the entire image. 
 - removed gaussian blur, and applied a simple normalization to pixels
     (gauss is only needed if the lighting is unstable, or jitters occur)
+
+
+//today: july29th 2026
+- create 2 scripts: extract calib metrics || ingest vid, run gabor and output defect.png and telemetry
+- telemetry should have blob size data. a metric to see the amt of noise produces over varied range of data
+- apply a threshold wrt average defect blob size telemetry data to avoid salt and pepper
+- integrate the logic: defect-->connected components-->bounding box-->apply some additional padding-->crop RGB-->warp to 256x256
+- get the final script that outputs ROI in 256x256x3 format and classifies defect
+
+NAMANKAKAAM:
+- run the script w a threshold window for blur, take the output and apply bounding box w fixed padding, crop RGB
+- save og and 256 warped ROIs; both
+- save metadata as well ("frame":183,"blur_score":132,"bbox":[x,y,w,h],"component_area":41, defect_type)
+
+//tom: july30th 2026
+- benchmark the script on uno Q

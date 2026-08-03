@@ -3,6 +3,5 @@ __pycache__/
 *.png
 *.jpg
 temp/
-dataset/
-requirements.txt
+asset/
 requirements_backup.txt

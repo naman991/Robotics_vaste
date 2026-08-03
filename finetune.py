@@ -9,7 +9,7 @@ import numpy as np
 # =====================================================================
 # GLOBAL CONFIGURATION (SINGLE SOURCE OF TRUTH)
 # =====================================================================
-DEFAULT_VIDEO_PATH = "temp/asset/cuts/c1.MOV"
+DEFAULT_VIDEO_PATH = "temp/asset/lint/l3.mov"
 DEFAULT_CALIB_JSON = "calibration_metrics.json"
 DEFAULT_EVAL_DIR = "evaluation_results"
 DEFAULT_SAMPLE_INTERVAL = 1.0

@@ -1,13 +1,16 @@
+# implementing downscaling before applying Gauss filter to reduce latency || reducing latency by half.
+
 import os
 import glob
 import json
 import cv2
 import numpy as np
+from collections import defaultdict
 
 # =====================================================================
 # CONFIGURATION & PATHS
 # =====================================================================
-INPUT_FOLDER = 'processed_fabric_frames'       # Folder containing input PNG images
+INPUT_FOLDER = 'input'        # Folder containing input PNG images
 OUTPUT_FOLDER = 'output_defects'   # Folder to save output defect masks
 CALIB_JSON_PATH = 'calibration_metrics.json'
 
@@ -60,7 +63,7 @@ oil_close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
 oil_open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
 # =====================================================================
-# BATCH PROCESSING
+# BATCH PROCESSING WITH BENCHMARKING
 # =====================================================================
 image_paths = glob.glob(os.path.join(INPUT_FOLDER, '*.png'))
 
@@ -70,9 +73,17 @@ if not image_paths:
 
 print(f"Processing {len(image_paths)} images from '{INPUT_FOLDER}'...\n")
 
+# Benchmark accumulator (milliseconds)
+stage_latencies = defaultdict(list)
+freq = cv2.getTickFrequency()
+
 for img_path in image_paths:
     filename = os.path.basename(img_path)
+    
+    # Stage 0: I/O Read
+    t0 = cv2.getTickCount()
     img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+    t_io_read = (cv2.getTickCount() - t0) / freq * 1000.0
     
     if img is None:
         print(f"Skipping corrupt image: {img_path}")
@@ -80,15 +91,33 @@ for img_path in image_paths:
 
     h, w = img.shape
 
-    # 1. Stream 1 Illumination Normalization Framework
-    blur_pad = 125
-    padded_raw_img = cv2.copyMakeBorder(img, blur_pad, blur_pad, blur_pad, blur_pad, borderType=cv2.BORDER_REFLECT_101)
-    blur_padded = cv2.GaussianBlur(padded_raw_img, (251, 251), 0)
-    blur = blur_padded[blur_pad:-blur_pad, blur_pad:-blur_pad]
+    # Stage 1: Illumination Normalization (Optimized via 8x Downsampled Background Estimation)
+    t0 = cv2.getTickCount()
+    ds_factor = 8
+    ds_w = w // ds_factor
+    ds_h = h // ds_factor
+
+    # Downsample image for background estimation
+    img_ds = cv2.resize(img, (ds_w, ds_h), interpolation=cv2.INTER_AREA)
+
+    # Scale padding and kernel size proportionally for downsampled domain
+    blur_pad_ds = max(1, 125 // ds_factor)
+    ksize_ds = 31  # Scaled down from 251x251 to preserve effective spatial radius
+
+    padded_raw_img_ds = cv2.copyMakeBorder(
+        img_ds, blur_pad_ds, blur_pad_ds, blur_pad_ds, blur_pad_ds, borderType=cv2.BORDER_REFLECT_101
+    )
+    blur_padded_ds = cv2.GaussianBlur(padded_raw_img_ds, (ksize_ds, ksize_ds), 0)
+    blur_ds = blur_padded_ds[blur_pad_ds:-blur_pad_ds, blur_pad_ds:-blur_pad_ds]
+
+    # Upsample smooth illumination background map back to original full resolution
+    blur = cv2.resize(blur_ds, (w, h), interpolation=cv2.INTER_LINEAR)
 
     normalized_img = cv2.divide(img, blur, scale=128)
+    t_illum_norm = (cv2.getTickCount() - t0) / freq * 1000.0
 
-    # 2. Production-Grade Reflective Padding Integration
+    # Stage 2: Padding & Gabor Filtering
+    t0 = cv2.getTickCount()
     pad_size = ksize
     padded_img = cv2.copyMakeBorder(
         normalized_img, 
@@ -98,8 +127,6 @@ for img_path in image_paths:
         right=pad_size, 
         borderType=cv2.BORDER_REFLECT_101
     )
-
-    # 3. Full-Resolution Structural Energy Map Computation
     f_real_padded = cv2.filter2D(padded_img, cv2.CV_64F, kernel_real)
     f_imag_padded = cv2.filter2D(padded_img, cv2.CV_64F, kernel_imag)
 
@@ -107,8 +134,10 @@ for img_path in image_paths:
     f_imag = f_imag_padded[pad_size:-pad_size, pad_size:-pad_size]
 
     structural_energy = np.sqrt(f_real**2 + f_imag**2)
+    t_gabor = (cv2.getTickCount() - t0) / freq * 1000.0
 
-    # 4. Stream 1: Z-Score Logic Envelope
+    # Stage 3: Z-Score Envelope & Thresholding
+    t0 = cv2.getTickCount()
     col_energy_mean = cv2.GaussianBlur(np.mean(structural_energy, axis=0, keepdims=True), (101, 1), 0)
     col_int_mean = cv2.GaussianBlur(np.mean(normalized_img.astype(np.float32), axis=0, keepdims=True), (101, 1), 0)
 
@@ -123,11 +152,16 @@ for img_path in image_paths:
     intensity_mask = dark_mask | light_saturation_mask
 
     combined_pixel_mask = (struct_mask | intensity_mask).astype(np.uint8) * 255
+    t_zscore = (cv2.getTickCount() - t0) / freq * 1000.0
 
+    # Stage 4: Structural Morphological Cleaning
+    t0 = cv2.getTickCount()
     closed_mask = cv2.morphologyEx(combined_pixel_mask, cv2.MORPH_CLOSE, close_kernel)
     cleaned_mask = cv2.morphologyEx(closed_mask, cv2.MORPH_OPEN, aligned_vert_kernel)
+    t_struct_morph = (cv2.getTickCount() - t0) / freq * 1000.0
 
-    # 5. Branch 3: Local Variance Stream
+    # Stage 5: Local Variance Stream
+    t0 = cv2.getTickCount()
     img_f = img.astype(np.float32)
     mean_I = cv2.blur(img_f, (V_WIN, V_WIN))
     mean_I2 = cv2.blur(img_f**2, (V_WIN, V_WIN))
@@ -140,8 +174,10 @@ for img_path in image_paths:
     solid_oil_mask = cv2.morphologyEx(closed_oil_mask, cv2.MORPH_OPEN, oil_open_kernel)
 
     unified_candidate_mask = cv2.bitwise_or(cleaned_mask, solid_oil_mask)
+    t_variance_stream = (cv2.getTickCount() - t0) / freq * 1000.0
 
-    # 6. Connected Component Size Filtering
+    # Stage 6: Connected Components Size Filtering
+    t0 = cv2.getTickCount()
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(unified_candidate_mask)
 
     MIN_CLUSTER_SIZE = 120
@@ -153,12 +189,57 @@ for img_path in image_paths:
         if cluster_size >= MIN_CLUSTER_SIZE:
             final_macro_mask[labels == i] = 255
             defect_count += 1
+    t_cc_filter = (cv2.getTickCount() - t0) / freq * 1000.0
 
-    # Save output using original image's filename in the output folder
+    # Stage 7: I/O Write
+    t0 = cv2.getTickCount()
     output_path = os.path.join(OUTPUT_FOLDER, filename)
     cv2.imwrite(output_path, final_macro_mask)
+    t_io_write = (cv2.getTickCount() - t0) / freq * 1000.0
+
+    # Accumulate metrics
+    stage_latencies["01_io_read"].append(t_io_read)
+    stage_latencies["02_illum_norm"].append(t_illum_norm)
+    stage_latencies["03_gabor_filter"].append(t_gabor)
+    stage_latencies["04_zscore_envelope"].append(t_zscore)
+    stage_latencies["05_struct_morph"].append(t_struct_morph)
+    stage_latencies["06_variance_stream"].append(t_variance_stream)
+    stage_latencies["07_cc_filtering"].append(t_cc_filter)
+    stage_latencies["08_io_write"].append(t_io_write)
+
+    total_image_latency = (
+        t_io_read + t_illum_norm + t_gabor + t_zscore + 
+        t_struct_morph + t_variance_stream + t_cc_filter + t_io_write
+    )
+    stage_latencies["00_total"].append(total_image_latency)
 
     status = "FAIL" if defect_count > 0 else "PASS"
-    print(f"[{status}] {filename} -> Saved defect mask to {output_path}")
+    print(f"[{status}] {filename} -> Latency: {total_image_latency:.2f} ms")
 
-print("\nBatch processing complete.")
+# =====================================================================
+# BENCHMARK REPORT SUMMARY
+# =====================================================================
+num_images = len(stage_latencies["00_total"])
+avg_total = np.mean(stage_latencies["00_total"])
+
+print("\n" + "=" * 65)
+print(f" LATENCY BENCHMARK REPORT ({num_images} Images Processed)")
+print("=" * 65)
+print(f"{'Pipeline Stage':<28} | {'Avg (ms)':<10} | {'Min (ms)':<10} | {'Max (ms)':<10} | {'Share (%)':<8}")
+print("-" * 65)
+
+for key in sorted(stage_latencies.keys()):
+    if key == "00_total":
+        continue
+    times = stage_latencies[key]
+    avg_t = np.mean(times)
+    min_t = np.min(times)
+    max_t = np.max(times)
+    pct = (avg_t / avg_total) * 100.0
+    
+    stage_name = key[3:].replace('_', ' ').title()
+    print(f"{stage_name:<28} | {avg_t:<10.2f} | {min_t:<10.2f} | {max_t:<10.2f} | {pct:<8.1f}")
+
+print("-" * 65)
+print(f"{'TOTAL PIPELINE (per frame)':<28} | {avg_total:<10.2f} | {np.min(stage_latencies['00_total']):<10.2f} | {np.max(stage_latencies['00_total']):<10.2f} | 100.0%")
+print("=" * 65)

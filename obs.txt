@@ -14,13 +14,8 @@
 NAMANKAKAAM: ROI GENERATION
 - 
 
-//today: july31st 2026: FIND THRESHOLD NWER + VIS INSPECT
-- Weave periodicity — can you still perceive the repeating twill structure?
-- Yarn directionality — are the dominant diagonal (or warp/weft) orientations still recognizable?
-- Texture contrast — is the weave still distinguishable, or has it merged into a smooth surface?
-
-generate 50 samples, apply varied gauss blur, generate a dataset that captures NWER and manual input. 
-
+//today: july31st 2026: optimize python script
+-
 
 // observations through CSV // 31st JUL 2026
 - 0 missed defect cases: 100% recall
@@ -56,3 +51,12 @@ Negatives should include:
 70–80% of the dataset being consecutive frames of the same defect: worth avoiding.
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+// optimization updates: 
+1. august 4th 2026 
+  - Dropped from 650.6ms to 481.6 ms {26.0%} speedup by moving to single-pass cv2.boxFilter. 
+   / cv2.sqrBoxFilter on raw uint8 data and using cv2.subtract(..., dst=local_var_buf)
+  - fft magnitude calculation at the end of gabor done using cv2.magnitude(vectorization) which uses SIMD and eliminated multiple copies. 
+  - eliminated python loop that runs N (number of white connected blobs) times to paint the final binary mask. 
+   / instead now using 1D Label remapping using cv2.LUT transform, where one single SIMD instruction pass gives binary mask. 
+  - column averages for fft energy when comparing for each column is done on a downscaled(8x) image, as intensity remains unaffected(drift by 0.15%) 

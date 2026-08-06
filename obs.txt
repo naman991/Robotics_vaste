@@ -4,18 +4,19 @@
 - what is the oil_solid_filtered.png outputting?
 
 
-
 //today: july31st 2026: 
 - optimize python script wrt outputting struct array not defect mask
 - find the reason for border flag? 
- 
-// observations through CSV // 31st JUL 2026
-- 0 missed defect cases: 100% recall
-- Blur Score can act as a coarse indicator of image complexity/noise, but it is not sufficient to determine acceptable 
-  frames on its own.
-- Connected Component Count is a strong candidate to replace manual noise scoring in subsequent iterations
-- blur score and NWER has low positive correlation; so its not the best metric to find the blur threshold for layer2
-- normal has around 30% false alarms; lint has around 90%false alarms; due to texture abrasion. 
+
+
+
+
+
+
+
+
+
+
 
 //////////////////////////////////////// DATASET REQUIREMENT FOR LAYER2 ////////////////////////////////////////////
 Output Interface: std::vector<DefectComponent> (Filtered Area >= 270px)

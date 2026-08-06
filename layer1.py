@@ -144,7 +144,7 @@ for img_path in image_paths:
     # 6. Connected Component Size Filtering
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(unified_candidate_mask)
 
-    MIN_CLUSTER_SIZE = 120
+    MIN_CLUSTER_SIZE = 270
     final_macro_mask = np.zeros_like(unified_candidate_mask)
     defect_count = 0
 

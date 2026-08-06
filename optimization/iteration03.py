@@ -249,7 +249,7 @@ for img_path in image_paths:
     t0 = cv2.getTickCount()
     num_labels, labels, stats, _ = cv2.connectedComponentsWithStats(unified_candidate_mask)
 
-    MIN_CLUSTER_SIZE = 120
+    MIN_CLUSTER_SIZE = 270
     
     if num_labels > 1:
         areas = stats[:, cv2.CC_STAT_AREA]

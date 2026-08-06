@@ -4,19 +4,11 @@
 - what is the oil_solid_filtered.png outputting?
 
 
-//today: july29th 2026
-- create 2 scripts: extract calib metrics || ingest vid, run gabor and output defect.png and telemetry
-- telemetry should have blob size data. a metric to see the amt of noise produces over varied range of data
-- apply a threshold wrt average defect blob size telemetry data to avoid salt and pepper
-- integrate the logic: defect-->connected components-->bounding box-->apply some additional padding-->crop RGB-->warp to 256x256
-- get the final script that outputs ROI in 256x256x3 format and classifies defect
 
-NAMANKAKAAM: ROI GENERATION
-- 
-
-//today: july31st 2026: optimize python script
--
-
+//today: july31st 2026: 
+- optimize python script wrt outputting struct array not defect mask
+- find the reason for border flag? 
+ 
 // observations through CSV // 31st JUL 2026
 - 0 missed defect cases: 100% recall
 - Blur Score can act as a coarse indicator of image complexity/noise, but it is not sufficient to determine acceptable 
@@ -26,14 +18,25 @@ NAMANKAKAAM: ROI GENERATION
 - normal has around 30% false alarms; lint has around 90%false alarms; due to texture abrasion. 
 
 //////////////////////////////////////// DATASET REQUIREMENT FOR LAYER2 ////////////////////////////////////////////
+Output Interface: std::vector<DefectComponent> (Filtered Area >= 270px)
 INPUT RES: 256X256
 RGB; SQUARE PADDED WARPED TO 256X256
+crop is done on raw RGB image 
 
 ROI CROPPING LOGIC: 
-- max priority is largest area connected blob
-- second priority is spatial clusters of small connected components 
-- last priority is all foreground images in a single ROI 
-
+1. map output from layer1 using centroid distance NMS
+2. if defect is less than 256x256; just expand. if defect is bigger, then simply tile at 128px stride(50%overlap)
+- P1: 
+  all boxes with area > 350px  
+- P2: priority based off of clusterScore 
+  270 px < area < 350 px
+  BFS centroid distance < 120px
+  when merging; combined bounding box shouldn't exceed 200x200. provides a safety margin for layer2(if defects fall at the edge)
+  calculate clusterScore: total area x density (this gives more priority to densely flagged areas)
+- P3: 
+  if centroid dist bw cluster and new point is less than 120px; and total bounding box is under 200px: merge
+  if centroid dist is bw 120-180px and results in a bounding box under 200px: shift and merge
+  otherwise a separate bounding box
 
 A reasonable MVP target would be:
 - 500–1000 positive ROIs
@@ -46,10 +49,6 @@ Negatives should include:
 - wrinkles
 - harmless texture changes
 - every kind of false alarm Layer 1 produces
-
-10–20% overlap across some samples: not a concern.
-70–80% of the dataset being consecutive frames of the same defect: worth avoiding.
-
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // optimization updates: 

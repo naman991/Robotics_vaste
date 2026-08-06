@@ -3,6 +3,8 @@
 - the major flags in lint gets eliminated if calibration patch is run on the exact video and the corresponding json is used. 
 - what is the oil_solid_filtered.png outputting?
 
+//layer2 //
+- run 2 tests; compare metrics wrt 224x224 and 256x256
 
 //today: july31st 2026: 
 - optimize python script wrt outputting struct array not defect mask

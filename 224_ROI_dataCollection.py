@@ -54,8 +54,15 @@ base_v_kernel = np.zeros((LINE_LEN, LINE_LEN), dtype=np.uint8)
 base_v_kernel[:, LINE_LEN // 2] = 1 
 theta_deg = np.degrees(theta) + 90.0
 M_rot = cv2.getRotationMatrix2D((LINE_LEN / 2.0, LINE_LEN / 2.0), theta_deg, 1.0)
-aligned_vert_kernel = cv2.warpAffine(base_v_kernel, M_rot, (LINE_LEN, LINE_LEN), flags=cv2.INTER_NEAREST)
-
+aligned_vert_kernel = cv2.warpAffine(
+    base_v_kernel, 
+    M_rot, 
+    (LINE_LEN, LINE_LEN), 
+    flags=cv2.INTER_NEAREST,
+    borderMode=cv2.BORDER_CONSTANT,
+    borderValue=0
+)
+aligned_vert_kernel = (aligned_vert_kernel > 0).astype(np.uint8)
 oil_close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
 oil_open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
 
@@ -163,7 +170,14 @@ def run_layer1_detector(img_path):
 
     # Stage 4: Structural Morphological Cleaning
     closed_mask = cv2.morphologyEx(combined_pixel_mask, cv2.MORPH_CLOSE, close_kernel)
-    cleaned_mask = cv2.morphologyEx(closed_mask, cv2.MORPH_OPEN, aligned_vert_kernel)
+    cleaned_mask = cv2.morphologyEx(
+        closed_mask, 
+        cv2.MORPH_OPEN, 
+        aligned_vert_kernel, 
+        anchor=(center_idx, center_idx),
+        borderType=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
 
     # Stage 5: Local Variance Stream
     mean_I = cv2.boxFilter(img, ddepth=cv2.CV_32F, ksize=(V_WIN, V_WIN))

@@ -2,6 +2,7 @@
 #   - eliminated python loop that runs N (number of white connected blobs) times to paint the final binary mask. 
 #    / instead now using 1D Label remapping using cv2.LUT transform, where one single SIMD instruction pass gives binary mask. 
 #   - column averages for fft energy when comparing for each column is done on a downscaled(8x) image, as intensity remains unaffected(drift by 0.15%) 
+
 import os
 import glob
 import json
@@ -55,11 +56,26 @@ CLOSE_KSIZE = 21
 close_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (CLOSE_KSIZE, CLOSE_KSIZE))
 
 LINE_LEN = 15
+if LINE_LEN % 2 == 0:
+    LINE_LEN += 1
+
+center_idx = LINE_LEN // 2
 base_v_kernel = np.zeros((LINE_LEN, LINE_LEN), dtype=np.uint8)
-base_v_kernel[:, LINE_LEN // 2] = 1 
+base_v_kernel[:, center_idx] = 1 
+
 theta_deg = np.degrees(theta) + 90.0
-M_rot = cv2.getRotationMatrix2D((LINE_LEN / 2.0, LINE_LEN / 2.0), theta_deg, 1.0)
-aligned_vert_kernel = cv2.warpAffine(base_v_kernel, M_rot, (LINE_LEN, LINE_LEN), flags=cv2.INTER_NEAREST)
+rot_center = (float(center_idx), float(center_idx))
+M_rot = cv2.getRotationMatrix2D(rot_center, theta_deg, 1.0)
+
+aligned_vert_kernel = cv2.warpAffine(
+    base_v_kernel, 
+    M_rot, 
+    (LINE_LEN, LINE_LEN), 
+    flags=cv2.INTER_NEAREST,
+    borderMode=cv2.BORDER_CONSTANT,
+    borderValue=0
+)
+aligned_vert_kernel = (aligned_vert_kernel > 0).astype(np.uint8)
 
 oil_close_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (15, 15))
 oil_open_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
@@ -226,7 +242,15 @@ for img_path in image_paths:
     # Stage 4: Structural Morphological Cleaning
     t0 = cv2.getTickCount()
     closed_mask = cv2.morphologyEx(combined_pixel_mask, cv2.MORPH_CLOSE, close_kernel)
-    cleaned_mask = cv2.morphologyEx(closed_mask, cv2.MORPH_OPEN, aligned_vert_kernel)
+
+    cleaned_mask = cv2.morphologyEx(
+        closed_mask, 
+        cv2.MORPH_OPEN, 
+        aligned_vert_kernel, 
+        anchor=(center_idx, center_idx),
+        borderType=cv2.BORDER_CONSTANT,
+        borderValue=0
+    )
     t_struct_morph = (cv2.getTickCount() - t0) / freq * 1000.0
 
     # Stage 5: Local Variance Stream (Single-Pass uint8 Box Filters & Pre-allocated Buffers)

@@ -8,7 +8,6 @@
 
 //today: july31st 2026: 
 - optimize python script wrt outputting struct array not defect mask
-- find the reason for border flag? 
 
 
 
@@ -62,3 +61,15 @@ Negatives should include:
   - eliminated python loop that runs N (number of white connected blobs) times to paint the final binary mask. 
    / instead now using 1D Label remapping using cv2.LUT transform, where one single SIMD instruction pass gives binary mask. 
   - column averages for fft energy when comparing for each column is done on a downscaled(8x) image, as intensity remains unaffected(drift by 0.15%) 
+
+
+
+
+
+  //optimization directions:
+  . Fused Magnitude & Threshold Kernel (L1/L2 Cache Squeezing)Current Mechanism:idft_real written to
+   RAM (~33 MB).idft_imag written to RAM (~33 MB).cv2.magnitude reads both 33 MB
+   arrays from RAM and writes structural_energy (~33 MB) back to RAM.Optimization (C++ / ARM NEON): 
+  Compute Euclidean distance $\sqrt{R^2 + I^2}$ directly on row slices as they come out of the complex 
+  IDFT output buffer.Impact: Eliminates 3 full-frame DRAM read/write passes across LPDDR4X memory.
+  Expected Latency Reduction: ~50–60 ms saved.

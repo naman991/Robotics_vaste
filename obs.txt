@@ -8,6 +8,11 @@
 
 //today: july31st 2026: 
 - optimize python script wrt outputting struct array not defect mask
+   check kernel reduction affects on the results and latency on unoQ
+   update w ROI logic, use cache to store coordinates and eliminate IO time 
+   apply idft in a single run/// failed
+   changed ksize from 25-15: reducing idft latency from 1700ms to 1200ms. dive deeper// ARM NEON register optimization. 
+     confusing part is it happened in fft based filter to filter2d. 
 
 
 

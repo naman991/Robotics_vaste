@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 
 # Input/Output paths
-IMAGE_PATH = 'input/o.png'
+IMAGE_PATH = 'input/n.png'
 OUTPUT_JSON = 'calibration_metrics.json'
 OUTPUT_IMAGE = 'calibration_bbox.png'
 

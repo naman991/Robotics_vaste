@@ -171,6 +171,7 @@ def run_layer1_detector(img_path):
 
     # Stage 4: Structural Morphological Cleaning
     closed_mask = cv2.morphologyEx(combined_pixel_mask, cv2.MORPH_CLOSE, close_kernel)
+    center_idx = aligned_vert_kernel.shape[0] // 2
     cleaned_mask = cv2.morphologyEx(
         closed_mask, 
         cv2.MORPH_OPEN, 

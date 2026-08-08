@@ -7,7 +7,7 @@ import numpy as np
 # =====================================================================
 # CONFIGURATION & PATHS
 # =====================================================================
-INPUT_FOLDER = 'processed_fabric_frames'       # Folder containing input PNG images
+INPUT_FOLDER = 'optimization/input'       # Folder containing input PNG images
 OUTPUT_FOLDER = 'output_defects'   # Folder to save output defect masks
 CALIB_JSON_PATH = 'calibration_metrics.json'
 
@@ -132,6 +132,7 @@ for img_path in image_paths:
     combined_pixel_mask = (struct_mask | intensity_mask).astype(np.uint8) * 255
 
     closed_mask = cv2.morphologyEx(combined_pixel_mask, cv2.MORPH_CLOSE, close_kernel)
+    center_idx = aligned_vert_kernel.shape[0] // 2
     cleaned_mask = cv2.morphologyEx(
         closed_mask, 
         cv2.MORPH_OPEN, 

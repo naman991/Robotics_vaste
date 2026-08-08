@@ -8,7 +8,7 @@ import numpy as np
 # =====================================================================
 # CONFIGURATION & PATHS
 # =====================================================================
-INPUT_FOLDER = 'input'            # Folder containing input PNG images
+INPUT_FOLDER = 'optimization/input'            # Folder containing input PNG images
 OUTPUT_ROIS_FOLDER = 'output_rois' # Folder to save numbered 224x224 ROIs
 OUTPUT_MASK_FOLDER = 'output_defects' # Folder to save macro binary masks
 CALIB_JSON_PATH = 'calibration_metrics.json'
@@ -170,6 +170,7 @@ def run_layer1_detector(img_path):
 
     # Stage 4: Structural Morphological Cleaning
     closed_mask = cv2.morphologyEx(combined_pixel_mask, cv2.MORPH_CLOSE, close_kernel)
+    center_idx = aligned_vert_kernel.shape[0] // 2
     cleaned_mask = cv2.morphologyEx(
         closed_mask, 
         cv2.MORPH_OPEN, 
